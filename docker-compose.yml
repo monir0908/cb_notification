@@ -1,0 +1,48 @@
+version: '3'
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile-dev
+    command: bash -c "gunicorn main:app --bind 0.0.0.0:8050 --worker-class aiohttp.GunicornWebWorker --access-logfile '-' --log-level debug --reload"
+    # command: bash -c "python main.py"
+    volumes:
+      - ./src:/app
+    ports:
+      - 8050:3000
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - redis
+    
+  task:
+    build: 
+      context: .
+      dockerfile: Dockerfile-dev
+    # command: bash -c "python3 task.py"
+    command: bash -c "celery -A consumer.consumer worker -l info"
+    volumes:
+      - ./src:/app
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+
+  redis:
+    image: redis:5-alpine
+    ports:
+      - 6378:6379
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "8032:15672"
+      - "5673:5673"
+      - "5674:5674"
+    environment:
+      - RABBITMQ_DEFAULT_PASS=mypass
+      - RABBITMQ_DEFAULT_USER=myuser
+      - RABBITMQ_DEFAULT_VHOST=myvhost
